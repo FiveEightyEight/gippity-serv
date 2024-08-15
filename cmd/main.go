@@ -7,6 +7,13 @@ import (
 	"github.com/joho/godotenv"
 )
 
+models := map[string]string{
+	"GPT-4o" : "gpt-4o",
+	"GPT-4o mini": "gpt-4o-mini",
+	"GPT-4 Turbo": "gpt-4-turbo",
+	"GPT-3.5 Turbo": "gpt-3.5-turbo-0125",
+}
+
 func getEnvKey() string {
 	err := godotenv.Load()
     if err != nil {
@@ -26,4 +33,7 @@ func main() {
 	// come back later
 	key := getEnvKey()
 	fmt.Println("hey this is in progress...", key)
+	for modelName, modelCode := range models {
+		fmt.Println(modelName, modelCode)
+	}
 }
