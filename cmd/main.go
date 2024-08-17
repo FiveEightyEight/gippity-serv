@@ -144,7 +144,7 @@ func getAllModels(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	response := createModelResponse
+	response := createModelResponse()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -155,7 +155,7 @@ func homePath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Print(w, "hey")
+	fmt.Fprint(w, "Welcome home")
 
 }
 
@@ -166,7 +166,7 @@ func main() {
 	for modelName, modelCode := range models {
 		fmt.Println(modelName, modelCode)
 	}
-	http.HandleFunc("/", getAllModels)
+	http.HandleFunc("/", homePath)
 	http.HandleFunc("/chat", handleChatCompletion)
 	http.HandleFunc("/models", getAllModels)
 
