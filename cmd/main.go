@@ -1,15 +1,16 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 var models = map[string]string{
@@ -19,14 +20,31 @@ var models = map[string]string{
 	"GPT-3.5 Turbo": "gpt-3.5-turbo-0125",
 }
 
+var modelsResponse = []string{"GPT-4o", "GPT-4o mini", "GPT-4 Turbo", "GPT-3.5 Turbo"}
+
+type ModelResponse struct {
+	Models []string `json:"models"`
+}
+
+func createModelResponse() ModelResponse {
+	return ModelResponse{
+		Models: modelsResponse,
+	}
+}
+
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
 type ChatBody struct {
-	Model    string    `json:"model`
+	Model    string    `json:"model"`
 	Messages []Message `json:"messages"`
+}
+
+type ChatResponse struct {
+	Content string `json:"content"`
+	Error   string `json:"error,omitempty"`
 }
 
 func getEnvKey() string {
@@ -44,61 +62,101 @@ func getEnvKey() string {
 	return apiKey
 }
 
-func callOpenAI() {
-	// Load the OpenAI API key from environment variables
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Fatal("OPENAI_API_KEY environment variable is not set")
-	}
-
-	// Set up the request payload
-	requestBody := ChatCompletionRequest{
-		Model: "gpt-4o-mini",
-		Messages: []Message{
-			{
-				Role:    "system",
-				Content: "You are a helpful assistant.",
-			},
-			{
-				Role:    "user",
-				Content: "Write a haiku that explains the concept of recursion.",
+func openClient() {
+	client := openai.NewClient("your token")
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: "Hello!",
+				},
 			},
 		},
-	}
+	)
 
-	// Convert the request payload to JSON
-	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		log.Fatalf("Error marshaling JSON: %v", err)
+		fmt.Printf("ChatCompletion error: %v\n", err)
+		return
+	}
+	fmt.Println(resp.Choices[0].Message.Content)
+}
+
+func handleChatCompletion(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
-	// Create a new HTTP request
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
+	var chatBody ChatBody
+	err := json.NewDecoder(r.Body).Decode(&chatBody)
 	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
 	}
 
-	// Set the required headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+	apiKey := getEnvKey()
+	client := openai.NewClient(apiKey)
 
-	// Send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error sending request: %v", err)
+	// Create a channel to receive the response
+	responseChan := make(chan ChatResponse)
+
+	// Start a goroutine to handle the API call
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		resp, err := client.CreateChatCompletion(
+			ctx,
+			openai.ChatCompletionRequest{
+				Model: chatBody.Model,
+				Messages: []openai.ChatCompletionMessage{
+					{
+						Role:    openai.ChatMessageRoleUser,
+						Content: chatBody.Messages[0].Content,
+					},
+				},
+			},
+		)
+
+		if err != nil {
+			responseChan <- ChatResponse{Error: fmt.Sprintf("ChatCompletion error: %v", err)}
+			return
+		}
+
+		responseChan <- ChatResponse{Content: resp.Choices[0].Message.Content}
+	}()
+
+	// Wait for the response or timeout
+	select {
+	case response := <-responseChan:
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	case <-time.After(35 * time.Second):
+		http.Error(w, "Request timeout", http.StatusGatewayTimeout)
 	}
-	defer resp.Body.Close()
+}
 
-	// Read the response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("Error reading response body: %v", err)
+func getAllModels(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+	response := createModelResponse
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
 
-	// Output the response
-	fmt.Println("Response status:", resp.Status)
-	fmt.Println("Response body:", string(body))
+func homePath(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	fmt.Print(w, "hey")
+
 }
 
 func main() {
@@ -108,4 +166,15 @@ func main() {
 	for modelName, modelCode := range models {
 		fmt.Println(modelName, modelCode)
 	}
+	http.HandleFunc("/", getAllModels)
+	http.HandleFunc("/chat", handleChatCompletion)
+	http.HandleFunc("/models", getAllModels)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("Server is running on port %s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
