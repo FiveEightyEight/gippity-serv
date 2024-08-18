@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/rs/cors"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -146,7 +147,15 @@ func getAllModels(w http.ResponseWriter, r *http.Request) {
 	}
 	response := createModelResponse()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Printf("Error encoding response: %v\n", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("Successfully sent response for /models")
 }
 
 func homePath(w http.ResponseWriter, r *http.Request) {
@@ -155,6 +164,7 @@ func homePath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	fmt.Fprint(w, "Welcome home")
 
 }
@@ -166,15 +176,26 @@ func main() {
 	for modelName, modelCode := range models {
 		fmt.Println(modelName, modelCode)
 	}
-	http.HandleFunc("/", homePath)
-	http.HandleFunc("/chat", handleChatCompletion)
-	http.HandleFunc("/models", getAllModels)
 
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+		Debug:            true,
+	})
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", homePath)
+	mux.HandleFunc("/chat", handleChatCompletion)
+	mux.HandleFunc("/models", getAllModels)
+
+	handler := c.Handler(mux)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
 	fmt.Printf("Server is running on port %s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
