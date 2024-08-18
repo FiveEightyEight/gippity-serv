@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="h-[100dvh] w-[100dvw]">
+    <section class="flex flex-col justify-between gap-1 h-[100dvh] p-2">
+
+        <div class="flex justify-center">
+            <select id="model-selection" class="border-solid border-2 border-slate-100">
+                <option></option>
+            </select>
+        </div>
+        <div class="flex justify-center">
+            <article class="flex flex-col gap-2 w-1/2">
+                <div class="flex justify-end">
+                    <p class="bg-slate-200 border-1 border-solid border-slate-300 rounded-full py-2 px-4">
+                        Hey
+                    </p>
+                </div>
+                <div class="flex justify-start">
+                    <p class="bg-green-200 border-1 border-solid border-green-300 rounded-full py-2 px-4">
+                        Hello this is chatGPT
+                    </p>
+                </div>
+            </article>
+
+        </div>
+        <div class="flex justify-center gap-2">
+            <input id="chat-input" class="border-solid border-2 border-slate-100 p-2 min-w-72" value="" /> <button
+                id="chat-button" class="border-solid border-2 border-slate-100 p-2 hover:bg-slate-300">Enter</button>
+        </div>
+
+    </section>
+
+    <script>
+        let chat = {};
+        let models = []
+        let currModel = "";
+        let modelSelection = null;
+        window.addEventListener("DOMContentLoaded", () => {
+            modelSelection = document.getElementById("model-selection");
+            fetch("http://localhost:8080/models", {
+                mode: 'cors',
+                headers: {
+                    'Accept': 'application/json',
+                },
+            }).then(res => res.json()).then(res => setModels(res)).catch(err => {
+                console.log('error calling api', err)
+            })
+            modelSelection.addEventListener("change", () => {
+                currModel = modelSelection.value;
+            })
+            const chatButton = document.getElementById("chat-button");
+            chatButton.addEventListener("mousedown", () => {
+                if (!currModel || currModel === '') {
+                    console.log('please select a model')
+                    return;
+                }
+                const chatInput = document.getElementById("chat-input");
+                const content = chatInput.value;
+                console.log({
+                    model: currModel,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: content,
+                        }
+                    ]
+                })
+                chatInput.value = '';
+            })
+            // chatInput.addEventListener()
+        })
+
+        function setModels(apiRes) {
+            if (!apiRes) {
+                console.log('setModels called with empty object')
+            }
+            const { models: m } = apiRes;
+            if (!m || !Array.isArray(m)) {
+                console.log('setModels unable to set an models do to missing models')
+            }
+            let innerSelectionHTML = `
+                <option value="" />
+            `
+                ;
+            for (let model of m) {
+                innerSelectionHTML += `
+                    <option value={${model}}>
+                        ${model}
+                    </option>
+                `
+            };
+            modelSelection.innerHTML = innerSelectionHTML;
+            models = m;
+        }
+    </script>
+
+</body>
+
+</html>
