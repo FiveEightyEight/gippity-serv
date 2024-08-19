@@ -39,8 +39,9 @@ type Message struct {
 }
 
 type ChatBody struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
+	Model string `json:"model"`
+	// Messages []Message `json:"messages"`
+	Messages []openai.ChatCompletionMessage `json:"messages"`
 }
 
 type ChatResponse struct {
@@ -63,28 +64,6 @@ func getEnvKey() string {
 	return apiKey
 }
 
-func openClient() {
-	client := openai.NewClient("your token")
-	resp, err := client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: "Hello!",
-				},
-			},
-		},
-	)
-
-	if err != nil {
-		fmt.Printf("ChatCompletion error: %v\n", err)
-		return
-	}
-	fmt.Println(resp.Choices[0].Message.Content)
-}
-
 func handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -98,6 +77,12 @@ func handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	requestedModel, exists := models[chatBody.Model]
+	if !exists {
+		http.Error(w, "Invalid Model", http.StatusBadRequest)
+		return
+	}
+
 	apiKey := getEnvKey()
 	client := openai.NewClient(apiKey)
 
@@ -108,17 +93,11 @@ func handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-
 		resp, err := client.CreateChatCompletion(
 			ctx,
 			openai.ChatCompletionRequest{
-				Model: chatBody.Model,
-				Messages: []openai.ChatCompletionMessage{
-					{
-						Role:    openai.ChatMessageRoleUser,
-						Content: chatBody.Messages[0].Content,
-					},
-				},
+				Model:    requestedModel,
+				Messages: chatBody.Messages,
 			},
 		)
 
@@ -170,9 +149,7 @@ func homePath(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// come back later
-	key := getEnvKey()
-	fmt.Println("hey this is in progress...", key)
+
 	for modelName, modelCode := range models {
 		fmt.Println(modelName, modelCode)
 	}
