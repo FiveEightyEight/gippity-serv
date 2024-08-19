@@ -40,17 +40,17 @@
 
     <script>
         let chat = {};
-        let models = []
+        let messages = [];
+        let models = [];
         let currModel = "";
         let modelSelection = null;
+        const USER = 'user';
+        const SYSTEM = 'system';
+        const ASSISTANT = 'assistant';
+        let loading = false;
         window.addEventListener("DOMContentLoaded", () => {
             modelSelection = document.getElementById("model-selection");
-            fetch("http://localhost:8080/models", {
-                mode: 'cors',
-                headers: {
-                    'Accept': 'application/json',
-                },
-            }).then(res => res.json()).then(res => setModels(res)).catch(err => {
+            fetch("http://localhost:8080/models").then(res => res.json()).then(res => setModels(res)).catch(err => {
                 console.log('error calling api', err)
             })
             modelSelection.addEventListener("change", () => {
@@ -64,16 +64,12 @@
                 }
                 const chatInput = document.getElementById("chat-input");
                 const content = chatInput.value;
-                console.log({
-                    model: currModel,
-                    messages: [
-                        {
-                            role: 'user',
-                            content: content,
-                        }
-                    ]
-                })
+                messages.push({
+                    role: USER,
+                    content: content,
+                });
                 chatInput.value = '';
+                callModel();
             })
             // chatInput.addEventListener()
         })
@@ -92,13 +88,38 @@
                 ;
             for (let model of m) {
                 innerSelectionHTML += `
-                    <option value={${model}}>
+                    <option value="${model}">
                         ${model}
                     </option>
                 `
             };
             modelSelection.innerHTML = innerSelectionHTML;
             models = m;
+        }
+
+        function callModel() {
+            if (!currModel || currModel === '') {
+                console.log('please select a model')
+                return;
+            }
+            const payload = {
+                model: currModel,
+                messages: messages,
+            }
+            loading = true;
+            fetch("http://localhost:8080/chat", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(r => r.json())
+                .then(res => {
+                    console.log(`SERVER REPLY`, res)
+                }).catch(err => {
+                    console.log('error calling chat')
+                })
         }
     </script>
 
