@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	// "github.com/FiveEightyEight/gippity-serv/api"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 	openai "github.com/sashabaranov/go-openai"
@@ -148,6 +149,24 @@ func homePath(w http.ResponseWriter, r *http.Request) {
 
 }
 
+type Middleware func(http.Handler) http.HandlerFunc
+
+func HandleMiddleWareChain(middleware ...Middleware) Middleware {
+	return func(next http.Handler) http.HandlerFunc {
+		for i := len(middleware) - 1; i >= 0; i-- {
+			next = middleware[i](next)
+		}
+		return next.ServeHTTP
+	}
+}
+
+func RequestLoggerMiddleware(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("method %s, path: %s", r.Method, r.URL.Path)
+		next.ServeHTTP(w, r)
+	}
+}
+
 func main() {
 
 	for modelName, modelCode := range models {
@@ -167,12 +186,15 @@ func main() {
 	mux.HandleFunc("/chat", handleChatCompletion)
 	mux.HandleFunc("/models", getAllModels)
 
-	handler := c.Handler(mux)
+	middleWareChain := HandleMiddleWareChain(
+		RequestLoggerMiddleware,
+	)
+	handler := middleWareChain(mux)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-
+	fmt.Printf("PORT: %s", port)
 	fmt.Printf("Server is running on port %s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, handler))
+	log.Fatal(http.ListenAndServe(":"+port, c.Handler(handler)))
 }
