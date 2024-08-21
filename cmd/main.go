@@ -168,11 +168,10 @@ func RequestLoggerMiddleware(next http.Handler) http.HandlerFunc {
 }
 
 func main() {
-
-	for modelName, modelCode := range models {
-		fmt.Println(modelName, modelCode)
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
 	}
-
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -182,9 +181,9 @@ func main() {
 	})
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", homePath)
-	mux.HandleFunc("/chat", handleChatCompletion)
-	mux.HandleFunc("/models", getAllModels)
+	mux.HandleFunc("GET /", homePath)
+	mux.HandleFunc("POST /chat", handleChatCompletion)
+	mux.HandleFunc("GET /models", getAllModels)
 
 	middleWareChain := HandleMiddleWareChain(
 		RequestLoggerMiddleware,
@@ -194,7 +193,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	fmt.Printf("PORT: %s", port)
-	fmt.Printf("Server is running on port %s\n", port)
+	log.Printf("Server is running on port %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, c.Handler(handler)))
 }
