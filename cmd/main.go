@@ -3,14 +3,16 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	// "github.com/FiveEightyEight/gippity-serv/api"
 	"github.com/joho/godotenv"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -64,23 +66,16 @@ func getEnvKey() string {
 	return apiKey
 }
 
-func handleChatCompletion(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
+func handleChatCompletion(c echo.Context) error {
 	var chatBody ChatBody
-	err := json.NewDecoder(r.Body).Decode(&chatBody)
+	err := json.NewDecoder(c.Request().Body).Decode(&chatBody)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return errors.New("invalid request body")
 	}
 
 	requestedModel, exists := models[chatBody.Model]
 	if !exists {
-		http.Error(w, "Invalid Model", http.StatusBadRequest)
-		return
+		return errors.New("invalid model")
 	}
 
 	apiKey := getEnvKey()
@@ -112,40 +107,20 @@ func handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	// Wait for the response or timeout
 	select {
 	case response := <-responseChan:
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		return c.JSON(http.StatusCreated, response)
 	case <-time.After(35 * time.Second):
-		http.Error(w, "Request timeout", http.StatusGatewayTimeout)
+		return errors.New("chat completion request timeout")
 	}
 }
 
-func getAllModels(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+func getAllModels(c echo.Context) error {
 	response := createModelResponse()
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	err := json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Printf("Error encoding response: %v\n", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
 	log.Println("Successfully sent response for /models")
+	return c.JSON(http.StatusCreated, response)
 }
 
-func homePath(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "text/plain")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	fmt.Fprint(w, "Welcome home")
-
+func homePath(c echo.Context) error {
+	return c.String(http.StatusOK, "Welcome home")
 }
 
 func main() {
@@ -153,17 +128,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
+	e := echo.New()
+	e.Use(middleware.Logger())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+	}))
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /", homePath)
-	mux.HandleFunc("POST /chat", handleChatCompletion)
-	mux.HandleFunc("GET /models", getAllModels)
+	e.GET("/", homePath)
+	e.POST("/chat", handleChatCompletion)
+	e.GET("/models", getAllModels)
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
+	e.Logger.Fatal(e.Start(":" + port))
 	log.Printf("Server is running on port %s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
