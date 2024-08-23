@@ -129,6 +129,7 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 	e := echo.New()
+	e.HideBanner = true
 	e.Use(middleware.Logger())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -141,8 +142,8 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = ":8080"
 	}
-	e.Logger.Fatal(e.Start(":" + port))
+	e.Logger.Fatal(e.Start(port))
 	log.Printf("Server is running on port %s\n", port)
 }
