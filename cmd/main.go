@@ -10,11 +10,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/FiveEightyEight/gippity-serv/db"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	openai "github.com/sashabaranov/go-openai"
 )
+
+type App struct {
+	DB *db.Database
+}
 
 var models = map[string]string{
 	"GPT-4o":        "gpt-4o",
@@ -128,6 +133,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
+	// Initialize the database connection
+	db, err := db.NewDatabaseConnection()
+	if err != nil {
+		log.Fatalf("Error connecting to database: %v", err)
+	}
+	defer db.Close()
+
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Logger())
