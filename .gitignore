@@ -4,3 +4,4 @@
 /views/**/*.go
 .env
 /**/.env
+.vscode/*
