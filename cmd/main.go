@@ -133,7 +133,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
-	// Initialize the database connection
+	// Initialize database connection
 	db, err := db.NewDatabaseConnection()
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
