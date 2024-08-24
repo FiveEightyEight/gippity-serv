@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -64,29 +65,31 @@ func (as *AuthService) CreateUser(username, email, password string) (string, err
 	var count int
 	err := as.DB.Pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM users WHERE username = $1 OR email = $2", username, email).Scan(&count)
 	if err != nil {
-		return "", err
+		log.Printf("Database error [cu-100] when checking existing user: %v", err)
+		return "", errors.New("an error occurred while creating the user [cu-100]")
 	}
 	if count > 0 {
-		return "", errors.New("username or email already exists")
+		return "", errors.New("username or email already exists [cu-101]")
 	}
 
 	// Hash the password
 	hashedPassword, err := as.HashString(password)
 	if err != nil {
-		return "", err
+		return "", errors.New("an error occurred while creating the user [cu-102]")
 	}
 
 	// Insert the new user
 	var userID int
 	err = as.DB.Pool.QueryRow(context.Background(), "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id", username, email, hashedPassword).Scan(&userID)
 	if err != nil {
-		return "", err
+		log.Printf("Database error [cu-103] when inserting new user: %v", err)
+		return "", errors.New("an error occurred while creating the user [cu-103]")
 	}
 
 	// Generate and return a login token
 	token, err := as.GenerateToken(userID)
 	if err != nil {
-		return "", err
+		return "", errors.New("an error occurred while creating the user [cu-104]")
 	}
 
 	return token, nil
@@ -97,16 +100,17 @@ func (as *AuthService) Login(username, password string) (string, error) {
 	var user User
 	err := as.DB.Pool.QueryRow(context.Background(), "SELECT id, password_hash FROM users WHERE username = $1", username).Scan(&user.ID, &user.PasswordHash)
 	if err != nil {
-		return "", errors.New("invalid login")
+		log.Printf("Database error [ln-200] during login: %v", err)
+		return "", errors.New("invalid login [ln-200]")
 	}
 
 	hashedPassword, err := as.HashString(password)
 	if err != nil {
-		return "", err
+		return "", errors.New("an error occurred while logging in [ln-201]")
 	}
 
 	if hashedPassword != user.PasswordHash {
-		return "", errors.New("invalid login")
+		return "", errors.New("invalid login [ln-202]")
 	}
 
 	return as.GenerateToken(user.ID)
@@ -117,12 +121,12 @@ func (as *AuthService) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		token := c.Request().Header.Get("Authorization")
 		if token == "" {
-			return echo.NewHTTPError(http.StatusUnauthorized, "missing auth token")
+			return echo.NewHTTPError(http.StatusUnauthorized, "missing auth token [am-300]")
 		}
 
 		valid, err := as.ValidateToken(token)
 		if err != nil || !valid {
-			return echo.NewHTTPError(http.StatusUnauthorized, "invalid auth token")
+			return echo.NewHTTPError(http.StatusUnauthorized, "invalid auth token [am-301]")
 		}
 
 		return next(c)
