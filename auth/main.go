@@ -66,16 +66,16 @@ func (as *AuthService) CreateUser(username, email, password string) (string, err
 	err := as.DB.Pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM users WHERE username = $1 OR email = $2", username, email).Scan(&count)
 	if err != nil {
 		log.Printf("Database error [cu-100] when checking existing user: %v", err)
-		return "", errors.New("an error occurred while creating the user [cu-100]")
+		return "", echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while creating the user [cu-100]")
 	}
 	if count > 0 {
-		return "", errors.New("username or email already exists [cu-101]")
+		return "", echo.NewHTTPError(http.StatusConflict, "username or email already exists [cu-101]")
 	}
 
 	// Hash the password
 	hashedPassword, err := as.HashString(password)
 	if err != nil {
-		return "", errors.New("an error occurred while creating the user [cu-102]")
+		return "", echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while creating the user [cu-102]")
 	}
 
 	// Insert the new user
@@ -83,13 +83,13 @@ func (as *AuthService) CreateUser(username, email, password string) (string, err
 	err = as.DB.Pool.QueryRow(context.Background(), "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id", username, email, hashedPassword).Scan(&userID)
 	if err != nil {
 		log.Printf("Database error [cu-103] when inserting new user: %v", err)
-		return "", errors.New("an error occurred while creating the user [cu-103]")
+		return "", echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while creating the user [cu-103]")
 	}
 
 	// Generate and return a login token
 	token, err := as.GenerateToken(userID)
 	if err != nil {
-		return "", errors.New("an error occurred while creating the user [cu-104]")
+		return "", echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while creating the user [cu-104]")
 	}
 
 	return token, nil
@@ -101,16 +101,16 @@ func (as *AuthService) Login(username, password string) (string, error) {
 	err := as.DB.Pool.QueryRow(context.Background(), "SELECT id, password_hash FROM users WHERE username = $1", username).Scan(&user.ID, &user.PasswordHash)
 	if err != nil {
 		log.Printf("Database error [ln-200] during login: %v", err)
-		return "", errors.New("invalid login [ln-200]")
+		return "", echo.NewHTTPError(http.StatusUnauthorized, "invalid login [ln-200]")
 	}
 
 	hashedPassword, err := as.HashString(password)
 	if err != nil {
-		return "", errors.New("an error occurred while logging in [ln-201]")
+		return "", echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while logging in [ln-201]")
 	}
 
 	if hashedPassword != user.PasswordHash {
-		return "", errors.New("invalid login [ln-202]")
+		return "", echo.NewHTTPError(http.StatusUnauthorized, "invalid login [ln-202]")
 	}
 
 	return as.GenerateToken(user.ID)
