@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/FiveEightyEight/gippity-serv/auth"
 	"github.com/FiveEightyEight/gippity-serv/db"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -135,6 +138,7 @@ func main() {
 	}
 	// Initialize database connection
 	db, err := db.NewDatabaseConnection()
+	authService := &auth.AuthService{DB: db}
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
@@ -149,8 +153,33 @@ func main() {
 	}))
 
 	e.GET("/", homePath)
-	e.POST("/chat", handleChatCompletion)
-	e.GET("/models", getAllModels)
+	e.POST("/login", func(c echo.Context) error {
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" || len(strings.Split(authHeader, " ")) != 2 {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid authorization header"})
+		}
+		encodedCreds := strings.Split(authHeader, " ")[1]
+		decodedCreds, err := base64.StdEncoding.DecodeString(encodedCreds)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials encoding"})
+		}
+		credentials := strings.Split(string(decodedCreds), ":")
+		if len(credentials) != 2 {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials format"})
+		}
+		username, password := credentials[0], credentials[1]
+		token, err := authService.Login(username, password)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"token": token})
+	})
+
+	// Routes that require authentication
+	authGroup := e.Group("")
+	authGroup.Use(authService.AuthMiddleware)
+	authGroup.POST("/chat", handleChatCompletion)
+	authGroup.GET("/models", getAllModels)
 
 	port := os.Getenv("PORT")
 	if port == "" {
