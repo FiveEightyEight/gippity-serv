@@ -48,7 +48,17 @@
         const SYSTEM = 'system';
         const ASSISTANT = 'assistant';
         let loading = false;
+
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login.html'; // Adjust this to your login page URL
+            }
+        }
+
         window.addEventListener("DOMContentLoaded", () => {
+            checkAuth(); // Check authentication when the page loads
+
             modelSelection = document.getElementById("model-selection");
             fetch("http://localhost:8080/models").then(res => res.json()).then(res => setModels(res)).catch(err => {
                 console.log('error calling api', err)
