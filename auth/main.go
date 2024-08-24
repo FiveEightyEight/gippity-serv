@@ -59,26 +59,37 @@ func (as *AuthService) ValidateToken(token string) (bool, error) {
 }
 
 // CreateUser creates a new user in the database
-func (as *AuthService) CreateUser(username, email, password string) error {
+func (as *AuthService) CreateUser(username, email, password string) (string, error) {
 	// Check if username or email already exists
 	var count int
 	err := as.DB.Pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM users WHERE username = $1 OR email = $2", username, email).Scan(&count)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if count > 0 {
-		return errors.New("username or email already exists")
+		return "", errors.New("username or email already exists")
 	}
 
 	// Hash the password
 	hashedPassword, err := as.HashString(password)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Insert the new user
-	_, err = as.DB.Pool.Exec(context.Background(), "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3)", username, email, hashedPassword)
-	return err
+	var userID int
+	err = as.DB.Pool.QueryRow(context.Background(), "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id", username, email, hashedPassword).Scan(&userID)
+	if err != nil {
+		return "", err
+	}
+
+	// Generate and return a login token
+	token, err := as.GenerateToken(userID)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
 // Login handles user login and returns an auth token

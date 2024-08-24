@@ -153,6 +153,33 @@ func main() {
 	}))
 
 	e.GET("/", homePath)
+	e.POST("/create_account", func(c echo.Context) error {
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" || len(strings.Split(authHeader, " ")) != 2 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid authorization header"})
+		}
+		encodedCreds := strings.Split(authHeader, " ")[1]
+		decodedCreds, err := base64.StdEncoding.DecodeString(encodedCreds)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid credentials encoding"})
+		}
+		credentials := strings.Split(string(decodedCreds), ":")
+		if len(credentials) != 3 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid credentials format"})
+		}
+		username, email, password := credentials[0], credentials[1], credentials[2]
+
+		if username == "" || email == "" || password == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Username, email, and password are required"})
+		}
+
+		token, err := authService.CreateUser(username, email, password)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		return c.JSON(http.StatusCreated, map[string]string{"token": token})
+	})
 	e.POST("/login", func(c echo.Context) error {
 		authHeader := c.Request().Header.Get("Authorization")
 		if authHeader == "" || len(strings.Split(authHeader, " ")) != 2 {
