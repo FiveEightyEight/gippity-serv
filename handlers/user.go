@@ -68,7 +68,6 @@ func CreateUser(userRepo *db.PostgresRepository) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusConflict, "username or email already exists [cu-101]")
 		}
 
-		// Hash the password
 		hashedPassword, err := hashString(password)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while creating the user [cu-102]")
