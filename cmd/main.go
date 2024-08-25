@@ -156,7 +156,7 @@ func main() {
 	authGroup := e.Group("")
 	authGroup.Use(handlers.AuthMiddleware)
 	authGroup.POST("/chat", handleChatCompletion)
-	authGroup.GET("/models", getAllModels)
+	authGroup.GET("/models", handlers.GetAllAIModels(db))
 
 	port := os.Getenv("PORT")
 	if port == "" {
