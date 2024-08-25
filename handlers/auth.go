@@ -90,7 +90,11 @@ func Login(repo *db.PostgresRepository) echo.HandlerFunc {
 // AuthMiddleware to validate auth tokens
 func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		token := c.Request().Header.Get("Authorization")
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" || len(strings.Split(authHeader, " ")) != 2 {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid authorization header"})
+		}
+		token := strings.Split(authHeader, " ")[1]
 		if token == "" {
 			return echo.NewHTTPError(http.StatusUnauthorized, "missing auth token [am-300]")
 		}
