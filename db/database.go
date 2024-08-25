@@ -79,8 +79,69 @@ func (r *PostgresRepository) DeleteUser(ctx context.Context, id int) error {
 	return nil
 }
 
+func (r *PostgresRepository) CreateAIModel(ctx context.Context, model *models.AIModel) error {
+	query := `INSERT INTO ai_models (name, version, description, is_active) VALUES ($1, $2, $3, $4) RETURNING id`
+	err := r.db.QueryRow(ctx, query, model.Name, model.Version, model.Description, model.IsActive).Scan(&model.ID)
+	if err != nil {
+		return fmt.Errorf("failed to create AI model: %v", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetAIModelByID(ctx context.Context, id int) (*models.AIModel, error) {
+	query := `SELECT id, name, version, description, is_active FROM ai_models WHERE id = $1`
+	model := &models.AIModel{}
+	err := r.db.QueryRow(ctx, query, id).Scan(&model.ID, &model.Name, &model.Version, &model.Description, &model.IsActive)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AI model by ID: %v", err)
+	}
+	return model, nil
+}
+
+func (r *PostgresRepository) GetAllAIModels(ctx context.Context) ([]*models.AIModel, error) {
+	query := `SELECT id, name, version, description, is_active FROM ai_models`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all AI models: %v", err)
+	}
+	defer rows.Close()
+
+	var list []*models.AIModel
+	for rows.Next() {
+		model := &models.AIModel{}
+		if err := rows.Scan(&model.ID, &model.Name, &model.Version, &model.Description, &model.IsActive); err != nil {
+			return nil, fmt.Errorf("failed to scan AI model: %v", err)
+		}
+		list = append(list, model)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over AI models: %v", err)
+	}
+
+	return list, nil
+}
+
+func (r *PostgresRepository) UpdateAIModel(ctx context.Context, model *models.AIModel) error {
+	query := `UPDATE ai_models SET name = $1, version = $2, description = $3, is_active = $4 WHERE id = $5`
+	_, err := r.db.Exec(ctx, query, model.Name, model.Version, model.Description, model.IsActive, model.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update AI model: %v", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) DeleteAIModel(ctx context.Context, id int) error {
+	query := `DELETE FROM ai_models WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete AI model: %v", err)
+	}
+	return nil
+}
+
 var _ repository.UserRepository = (*PostgresRepository)(nil)
 
-// Implement other repository methods (UserMetadata, Chat, Message, AIModel, ChatAIModel, UserPreferences) similarly...
+// Implement other repository methods (UserMetadata, Chat, Message, ChatAIModel, UserPreferences) similarly...
 
 // Ensure other interfaces are implemented...
