@@ -3,21 +3,34 @@ package db
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/FiveEightyEight/gippity-serv/models"
 	"github.com/FiveEightyEight/gippity-serv/repository"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
 type PostgresRepository struct {
 	db *pgxpool.Pool
 }
 
-func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
-	return &PostgresRepository{db: db}
+func NewDatabaseConnection() (*PostgresRepository, error) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+	db, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %v", err)
+	}
+	return &PostgresRepository{db: db}, nil
 }
 
-// User Repository Methods
+func (r *PostgresRepository) Close() {
+	r.db.Close()
+}
 
 func (r *PostgresRepository) CreateUser(ctx context.Context, user *models.User) error {
 	query := `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id`
@@ -67,3 +80,7 @@ func (r *PostgresRepository) DeleteUser(ctx context.Context, id int) error {
 }
 
 var _ repository.UserRepository = (*PostgresRepository)(nil)
+
+// Implement other repository methods (UserMetadata, Chat, Message, AIModel, ChatAIModel, UserPreferences) similarly...
+
+// Ensure other interfaces are implemented...
