@@ -60,7 +60,15 @@
             checkAuth(); // Check authentication when the page loads
 
             modelSelection = document.getElementById("model-selection");
-            fetch("http://localhost:8080/models").then(res => res.json()).then(res => setModels(res)).catch(err => {
+            const token = localStorage.getItem('token');
+            fetch("http://localhost:8080/models", {
+                headers: {
+                    'Authorization': `Basic ${token}`
+                }
+            })
+            .then(res => res.json())
+            .then(res => setModels(res))
+            .catch(err => {
                 console.log('error calling api', err)
             })
             modelSelection.addEventListener("change", () => {
