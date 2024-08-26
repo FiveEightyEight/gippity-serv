@@ -75,14 +75,14 @@ CREATE INDEX idx_ai_models_id ON ai_models(id);
 -- Chat-AI Model association table
 CREATE TABLE chat_ai_models (
     chat_id UUID REFERENCES chats(id),
-    ai_model_id INTEGER REFERENCES ai_models(id),
+    ai_model_id UUID REFERENCES ai_models(id),
     PRIMARY KEY (chat_id, ai_model_id)
 );
 
 -- User preferences table
 CREATE TABLE user_preferences (
     user_id UUID PRIMARY KEY REFERENCES users(id),
-    default_ai_model INTEGER REFERENCES ai_models(id),
+    default_ai_model UUID REFERENCES ai_models(id),
     theme VARCHAR(20) DEFAULT 'light',
     message_display_count INTEGER DEFAULT 50,
     notifications_enabled BOOLEAN DEFAULT TRUE
