@@ -2,44 +2,17 @@ package handlers
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
-	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/FiveEightyEight/gippity-serv/db"
 	"github.com/FiveEightyEight/gippity-serv/models"
-	"github.com/joho/godotenv"
+	"github.com/FiveEightyEight/gippity-serv/utils"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
-
-func hashString(input string) (string, error) {
-	err := godotenv.Load()
-	if err != nil {
-		return "", err
-	}
-
-	salt := os.Getenv("HASH_SALT")
-	if salt == "" {
-		return "", fmt.Errorf("HASH_SALT is not set in the environment")
-	}
-
-	saltedInput := input + salt
-	hasher := sha256.New()
-	hasher.Write([]byte(saltedInput))
-	hashedBytes := hasher.Sum(nil)
-	return hex.EncodeToString(hashedBytes), nil
-}
-
-func generateToken(userID int) (string, error) {
-	token := fmt.Sprintf("%d:%d", userID, time.Now().Unix())
-	return hashString(token)
-}
 
 func CreateUser(userRepo *db.PostgresRepository) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -68,7 +41,7 @@ func CreateUser(userRepo *db.PostgresRepository) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusConflict, "username or email already exists [cu-101]")
 		}
 
-		hashedPassword, err := hashString(password)
+		hashedPassword, err := utils.HashString(password)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while creating the user [cu-102]")
 		}
@@ -84,7 +57,7 @@ func CreateUser(userRepo *db.PostgresRepository) echo.HandlerFunc {
 		}
 
 		// Generate and return a login token
-		token, err := generateToken(user.ID)
+		token, err := utils.GenerateToken(user.ID.String())
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while creating the user [cu-104]")
 		}
@@ -111,8 +84,8 @@ func GetUser(userRepo *db.PostgresRepository) echo.HandlerFunc {
 
 func UpdateUser(userRepo *db.PostgresRepository) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
+		id := c.Param("id")
+		if id == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "Invalid user ID")
 		}
 
@@ -120,7 +93,12 @@ func UpdateUser(userRepo *db.PostgresRepository) echo.HandlerFunc {
 		if err := c.Bind(user); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
 		}
-		user.ID = id
+
+		parsedID, err := uuid.Parse(id)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Invalid user ID format")
+		}
+		user.ID = parsedID
 
 		if err := userRepo.UpdateUser(context.Background(), user); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update user")

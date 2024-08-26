@@ -1,51 +1,14 @@
 package handlers
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
-	"errors"
-	"fmt"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/FiveEightyEight/gippity-serv/db"
-	"github.com/joho/godotenv"
+	"github.com/FiveEightyEight/gippity-serv/utils"
 	"github.com/labstack/echo/v4"
 )
-
-func HashString(input string) (string, error) {
-	err := godotenv.Load()
-	if err != nil {
-		return "", err
-	}
-
-	salt := os.Getenv("HASH_SALT")
-	if salt == "" {
-		return "", errors.New("HASH_SALT is not set in the environment")
-	}
-
-	saltedInput := input + salt
-	hasher := sha256.New()
-	hasher.Write([]byte(saltedInput))
-	hashedBytes := hasher.Sum(nil)
-	return hex.EncodeToString(hashedBytes), nil
-}
-
-// Token generations and validation to be replaced with JWT in the future (oh no is this tech debt that I'll never get to?)
-func GenerateToken(userID int) (string, error) {
-	token := fmt.Sprintf("%d:%d", userID, time.Now().Unix())
-	return HashString(token)
-}
-
-func ValidateToken(token string) (bool, error) {
-	if _, err := hex.DecodeString(token); err != nil {
-		return false, err
-	}
-	return true, nil
-}
 
 func Login(repo *db.PostgresRepository) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -69,7 +32,7 @@ func Login(repo *db.PostgresRepository) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 		}
 
-		hashedPassword, err := HashString(password)
+		hashedPassword, err := utils.HashString(password)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while logging in"})
 		}
@@ -78,7 +41,7 @@ func Login(repo *db.PostgresRepository) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 		}
 
-		token, err := GenerateToken(user.ID)
+		token, err := utils.GenerateToken(user.ID.String())
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while logging in"})
 		}
@@ -99,7 +62,7 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusUnauthorized, "missing auth token [am-300]")
 		}
 
-		valid, err := ValidateToken(token)
+		valid, err := utils.ValidateToken(token)
 		if err != nil || !valid {
 			return echo.NewHTTPError(http.StatusUnauthorized, "invalid auth token [am-301]")
 		}
