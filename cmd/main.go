@@ -143,20 +143,23 @@ func main() {
 
 	// Update the CORS middleware configuration
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowCredentials: true,
 	}))
 
 	e.GET("/", homePath)
 	e.POST("/create_account", handlers.CreateUser(db))
 	e.POST("/login", handlers.Login(db))
+	e.POST("/register", handlers.CreateUser(db))
+	e.POST("/refresh", handlers.RefreshToken)
 
-	// Routes that require authentication
-	authGroup := e.Group("")
+	// Protected routes
+	authGroup := e.Group("/api")
 	authGroup.Use(handlers.AuthMiddleware)
-	authGroup.POST("/chat", handleChatCompletion)
 	authGroup.GET("/models", handlers.GetAllAIModels(db))
+	authGroup.POST("/chat", handleChatCompletion)
 
 	port := os.Getenv("PORT")
 	if port == "" {
