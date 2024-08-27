@@ -141,9 +141,9 @@ func main() {
 	e.HideBanner = true
 	e.Use(middleware.Logger())
 
-	// Update the CORS middleware configuration
+	// Update the CORS middleware configuration when deploying to prod
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     []string{"http://localhost:4321"},
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowCredentials: true,
