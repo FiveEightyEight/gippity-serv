@@ -121,8 +121,8 @@ func RefreshToken(c echo.Context) error {
 		Value:    newRefreshToken,
 		Expires:  time.Now().Add(30 * 24 * time.Hour),
 		HttpOnly: true,
-		Secure:   false, // Ensure this is true in production (over HTTPS)
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false,                 // Ensure this is true in production (over HTTPS)
+		SameSite: http.SameSiteNoneMode, // Ensure this is true in production (over HTTPS)
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{
