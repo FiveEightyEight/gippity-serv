@@ -33,37 +33,37 @@ func Login(repo *db.PostgresRepository) echo.HandlerFunc {
 		credentials := strings.Split(string(decodedCreds), ":")
 		if len(credentials) != 2 {
 			log.Printf("Invalid credentials format: expected 2 parts, got %d", len(credentials))
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials format [ln-403]"})
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials format"})
 		}
 		username, password := credentials[0], credentials[1]
 
 		user, err := repo.GetUserByUsername(c.Request().Context(), username)
 		if err != nil {
 			log.Printf("Error getting user by username: %v", err)
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials [ln-403]"})
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 		}
 
 		hashedPassword, err := utils.HashString(password)
 		if err != nil {
 			log.Printf("Error hashing password: %v", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while logging in [ln-501]"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while logging in"})
 		}
 
 		if hashedPassword != user.PasswordHash {
 			log.Printf("Password mismatch for user: %s", username)
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials [ln-502]"})
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 		}
 
 		accessToken, err := auth.GenerateAccessToken(user.ID.String())
 		if err != nil {
 			log.Printf("Error generating access token: %v", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while logging in [ln-503]"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while logging in"})
 		}
 
 		refreshToken, err := auth.GenerateRefreshToken(user.ID.String())
 		if err != nil {
 			log.Printf("Error generating refresh token: %v", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while logging in [ln-504]"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while logging in"})
 		}
 
 		// Set refresh token as HTTP-only cookie
@@ -91,12 +91,12 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		tokenString := strings.Split(authHeader, " ")[1]
 		if tokenString == "" {
-			return echo.NewHTTPError(http.StatusUnauthorized, "missing auth token [am-300]")
+			return echo.NewHTTPError(http.StatusUnauthorized, "Missing auth token")
 		}
 
 		claims, err := auth.ValidateToken(tokenString, false)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusUnauthorized, "invalid auth token [am-301]")
+			return echo.NewHTTPError(http.StatusUnauthorized, "Invalid auth token")
 		}
 
 		c.Set("userID", claims.UserID)
