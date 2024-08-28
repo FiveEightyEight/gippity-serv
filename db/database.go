@@ -232,6 +232,104 @@ func (r *PostgresRepository) GetChatsByUserID(ctx context.Context, userID uuid.U
 	return chats, nil
 }
 
+// CreateMessage inserts a new message into the database
+func (r *PostgresRepository) CreateMessage(ctx context.Context, message *models.Message) error {
+	query := `INSERT INTO messages (id, chat_id, user_id, role, content, created_at, is_edited)
+              VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := r.db.Exec(ctx, query,
+		message.ID,
+		message.ChatID,
+		message.UserID,
+		message.Role,
+		message.Content,
+		message.CreatedAt,
+		message.IsEdited)
+	if err != nil {
+		return fmt.Errorf("failed to create message: %v", err)
+	}
+	return nil
+}
+
+// GetMessageByID retrieves a message by its ID
+func (r *PostgresRepository) GetMessageByID(ctx context.Context, id uuid.UUID) (*models.Message, error) {
+	query := `SELECT id, chat_id, user_id, role, content, created_at, is_edited
+              FROM messages
+              WHERE id = $1`
+	message := &models.Message{}
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&message.ID,
+		&message.ChatID,
+		&message.UserID,
+		&message.Role,
+		&message.Content,
+		&message.CreatedAt,
+		&message.IsEdited)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message by ID: %v", err)
+	}
+	return message, nil
+}
+
+// UpdateMessage updates an existing message in the database
+func (r *PostgresRepository) UpdateMessage(ctx context.Context, message *models.Message) error {
+	query := `UPDATE messages
+              SET content = $1, is_edited = $2
+              WHERE id = $3`
+	_, err := r.db.Exec(ctx, query,
+		message.Content,
+		message.IsEdited,
+		message.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update message: %v", err)
+	}
+	return nil
+}
+
+// DeleteMessage deletes a message from the database
+func (r *PostgresRepository) DeleteMessage(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM messages WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete message: %v", err)
+	}
+	return nil
+}
+
+// GetMessagesByChatID retrieves all messages for a given chat_id
+func (r *PostgresRepository) GetMessagesByChatID(ctx context.Context, chatID uuid.UUID) ([]*models.Message, error) {
+	query := `SELECT id, chat_id, user_id, role, content, created_at, is_edited
+              FROM messages
+              WHERE chat_id = $1
+              ORDER BY created_at ASC`
+	rows, err := r.db.Query(ctx, query, chatID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get messages by chat ID: %v", err)
+	}
+	defer rows.Close()
+
+	var messages []*models.Message
+	for rows.Next() {
+		message := &models.Message{}
+		if err := rows.Scan(
+			&message.ID,
+			&message.ChatID,
+			&message.UserID,
+			&message.Role,
+			&message.Content,
+			&message.CreatedAt,
+			&message.IsEdited); err != nil {
+			return nil, fmt.Errorf("failed to scan message: %v", err)
+		}
+		messages = append(messages, message)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over messages: %v", err)
+	}
+
+	return messages, nil
+}
+
 var _ repository.UserRepository = (*PostgresRepository)(nil)
 
 // Implement other repository methods (UserMetadata, Chat, Message, ChatAIModel, UserPreferences) similarly...
