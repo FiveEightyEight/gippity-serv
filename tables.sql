@@ -52,6 +52,7 @@ CREATE INDEX idx_chats_id ON chats(id);
 -- Messages table
 CREATE TABLE messages (
     pk SERIAL PRIMARY KEY,
+    id UUID UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
     chat_id UUID REFERENCES chats(id),
     user_id UUID REFERENCES users(id),
     role VARCHAR(20) NOT NULL,
@@ -59,6 +60,8 @@ CREATE TABLE messages (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     is_edited BOOLEAN DEFAULT FALSE
 );
+
+CREATE INDEX idx_messages_id ON messages(id);
 
 -- AI Models table
 CREATE TABLE ai_models (
