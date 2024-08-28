@@ -8,6 +8,7 @@ import (
 
 	"github.com/FiveEightyEight/gippity-serv/models"
 	"github.com/FiveEightyEight/gippity-serv/repository"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
@@ -138,6 +139,97 @@ func (r *PostgresRepository) DeleteAIModel(ctx context.Context, id int) error {
 		return fmt.Errorf("failed to delete AI model: %v", err)
 	}
 	return nil
+}
+
+func (r *PostgresRepository) CreateChat(ctx context.Context, chat *models.Chat) (*models.Chat, error) {
+	query := `INSERT INTO chats (user_id, title, created_at, last_updated, is_archived) 
+              VALUES ($1, $2, $3, $4, $5) 
+              RETURNING id`
+	err := r.db.QueryRow(ctx, query,
+		chat.UserID,
+		chat.Title,
+		chat.CreatedAt,
+		chat.LastUpdated,
+		chat.IsArchived).Scan(&chat.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chat: %v", err)
+	}
+	return chat, nil
+}
+
+func (r *PostgresRepository) GetChatByID(ctx context.Context, id uuid.UUID) (*models.Chat, error) {
+	query := `SELECT id, user_id, title, created_at, last_updated, is_archived 
+              FROM chats 
+              WHERE id = $1`
+	chat := &models.Chat{}
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&chat.ID,
+		&chat.UserID,
+		&chat.Title,
+		&chat.CreatedAt,
+		&chat.LastUpdated,
+		&chat.IsArchived)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat by ID: %v", err)
+	}
+	return chat, nil
+}
+
+func (r *PostgresRepository) UpdateChat(ctx context.Context, chat *models.Chat) error {
+	query := `UPDATE chats 
+              SET user_id = $1, title = $2, last_updated = $3, is_archived = $4 
+              WHERE id = $5`
+	_, err := r.db.Exec(ctx, query,
+		chat.UserID,
+		chat.Title,
+		chat.LastUpdated,
+		chat.IsArchived,
+		chat.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update chat: %v", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) DeleteChat(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM chats WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete chat: %v", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetChatsByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Chat, error) {
+	query := `SELECT id, user_id, title, created_at, last_updated, is_archived 
+              FROM chats 
+              WHERE user_id = $1`
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chats by user ID: %v", err)
+	}
+	defer rows.Close()
+
+	var chats []*models.Chat
+	for rows.Next() {
+		chat := &models.Chat{}
+		if err := rows.Scan(
+			&chat.ID,
+			&chat.UserID,
+			&chat.Title,
+			&chat.CreatedAt,
+			&chat.LastUpdated,
+			&chat.IsArchived); err != nil {
+			return nil, fmt.Errorf("failed to scan chat: %v", err)
+		}
+		chats = append(chats, chat)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over chats: %v", err)
+	}
+
+	return chats, nil
 }
 
 var _ repository.UserRepository = (*PostgresRepository)(nil)
