@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/FiveEightyEight/gippity-serv/auth"
 	"github.com/FiveEightyEight/gippity-serv/db"
 	"github.com/FiveEightyEight/gippity-serv/models"
 	"github.com/google/uuid"
@@ -61,16 +60,33 @@ func ChatCompletionStream(ctx context.Context, messages []models.MessageContent,
 func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// Get user ID from JWT
-		tokenString := c.Request().Header.Get("Authorization")
-		claims, err := auth.ValidateToken(tokenString, false)
-		if err != nil {
-			log.Println("Failed to validate token [c-1]", err)
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token [c-1]"})
+
+		// tokenString := c.Request().Header.Get("Authorization")
+		// claims, err := auth.ValidateToken(tokenString, false)
+		// if err != nil {
+		// 	log.Println("Failed to validate token [c-1]", err)
+		// 	return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token [c-1]"})
+		// }
+		// userID, err := uuid.Parse(claims.UserID)
+		// if err != nil {
+		// 	log.Println("Failed to parse user ID [c-2]", err)
+		// 	return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-2]"})
+		// }
+		unparsedUserID := c.Get("userID")
+		log.Printf("Unparsed User ID: %v", unparsedUserID)
+		if unparsedUserID == nil {
+			log.Println("Failed to get userID from context [c-001]")
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized [c-001]"})
 		}
-		userID, err := uuid.Parse(claims.UserID)
+		userIDString, ok := unparsedUserID.(string)
+		if !ok {
+			log.Println("Failed to convert userID to string [c-003]")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-003]"})
+		}
+		userID, err := uuid.Parse(userIDString)
 		if err != nil {
-			log.Println("Failed to parse user ID [c-2]", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-2]"})
+			log.Println("Failed to parse userID [c-002]", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-002]"})
 		}
 
 		// Bind the raw payload first to check for invalid fields
@@ -89,7 +105,6 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 		var chatID uuid.UUID
 		var aiModelVersion string
 		messages := []models.MessageContent{}
-		rawPayload["user_id"] = userID
 		// If no chat ID, create a new chat
 		if rawPayload["chat_id"] == "" {
 			isNewChat = true
@@ -119,6 +134,21 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 			aiModelVersion = chat.AIModelVersion
 			chatID = chat.ID
 		}
+
+		// Parse the created_at string into a time.Time object
+		createdAtStr, ok := rawPayload["created_at"].(string)
+		if !ok {
+			log.Println("Failed to get created_at as string [c-004]")
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid created_at format [c-004]"})
+		}
+
+		createdAt, err := time.Parse(time.RFC3339, createdAtStr)
+		if err != nil {
+			log.Println("Failed to parse created_at [c-005]", err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid created_at format [c-005]"})
+		}
+
+		// Use the parsed time in the message struct
 		// the user message
 		message := models.Message{
 			ChatID:    rawPayload["chat_id"].(uuid.UUID),
@@ -126,7 +156,7 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 			UserID:    userID,
 			Role:      "user",
 			IsEdited:  rawPayload["is_edited"].(bool),
-			CreatedAt: rawPayload["created_at"].(time.Time),
+			CreatedAt: createdAt,
 		}
 
 		if isNewChat {
