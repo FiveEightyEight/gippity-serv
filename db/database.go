@@ -238,16 +238,16 @@ func (r *PostgresRepository) GetChatsByUserID(ctx context.Context, userID uuid.U
 
 // CreateMessage inserts a new message into the database
 func (r *PostgresRepository) CreateMessage(ctx context.Context, message *models.Message) error {
-	query := `INSERT INTO messages (id, chat_id, user_id, role, content, created_at, is_edited)
-              VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err := r.db.Exec(ctx, query,
-		message.ID,
+	query := `INSERT INTO messages (chat_id, user_id, role, content, created_at, is_edited)
+              VALUES ($1, $2, $3, $4, $5, $6)
+              RETURNING id`
+	err := r.db.QueryRow(ctx, query,
 		message.ChatID,
 		message.UserID,
 		message.Role,
 		message.Content,
 		message.CreatedAt,
-		message.IsEdited)
+		message.IsEdited).Scan(&message.ID)
 	if err != nil {
 		return fmt.Errorf("failed to create message: %v", err)
 	}
