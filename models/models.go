@@ -40,13 +40,14 @@ type Chat struct {
 }
 
 type Message struct {
-	ID        uuid.UUID `json:"id"`
-	ChatID    uuid.UUID `json:"chat_id"`
-	UserID    uuid.UUID `json:"user_id"`
-	Role      string    `json:"role"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
-	IsEdited  bool      `json:"is_edited"`
+	ID             uuid.UUID `json:"id"`
+	ChatID         uuid.UUID `json:"chat_id"`
+	UserID         uuid.UUID `json:"user_id"`
+	Role           string    `json:"role"`
+	Content        string    `json:"content"`
+	CreatedAt      time.Time `json:"created_at"`
+	IsEdited       bool      `json:"is_edited"`
+	AIModelVersion *string   `json:"ai_model_version,omitempty" gorm:"-"`
 }
 
 type AIModel struct {
