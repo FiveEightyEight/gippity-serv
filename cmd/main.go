@@ -156,10 +156,11 @@ func main() {
 	e.POST("/refresh", handlers.RefreshToken)
 
 	// Protected routes
-	authGroup := e.Group("/api")
+	authGroup := e.Group("/api/v1")
 	authGroup.Use(handlers.AuthMiddleware)
 	authGroup.GET("/models", handlers.GetAllAIModels(db))
 	authGroup.POST("/chat", handleChatCompletion)
+	authGroup.POST("/conversation", handlers.Conversation(db))
 
 	port := os.Getenv("PORT")
 	if port == "" {
