@@ -30,12 +30,13 @@ type UserMetadata struct {
 }
 
 type Chat struct {
-	ID          uuid.UUID `json:"id"`
-	UserID      uuid.UUID `json:"user_id"`
-	Title       string    `json:"title"`
-	CreatedAt   time.Time `json:"created_at"`
-	LastUpdated time.Time `json:"last_updated"`
-	IsArchived  bool      `json:"is_archived"`
+	ID             uuid.UUID `json:"id"`
+	UserID         uuid.UUID `json:"user_id"`
+	Title          string    `json:"title"`
+	CreatedAt      time.Time `json:"created_at"`
+	LastUpdated    time.Time `json:"last_updated"`
+	IsArchived     bool      `json:"is_archived"`
+	AIModelVersion string    `json:"ai_model_version"`
 }
 
 type Message struct {

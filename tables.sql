@@ -44,7 +44,8 @@ CREATE TABLE chats (
     title VARCHAR(255),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     last_updated TIMESTAMPTZ DEFAULT NOW(),
-    is_archived BOOLEAN DEFAULT FALSE
+    is_archived BOOLEAN DEFAULT FALSE,
+    ai_model_version VARCHAR(20)
 );
 
 CREATE INDEX idx_chats_id ON chats(id);
