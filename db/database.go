@@ -142,15 +142,16 @@ func (r *PostgresRepository) DeleteAIModel(ctx context.Context, id int) error {
 }
 
 func (r *PostgresRepository) CreateChat(ctx context.Context, chat *models.Chat) (*models.Chat, error) {
-	query := `INSERT INTO chats (user_id, title, created_at, last_updated, is_archived) 
-              VALUES ($1, $2, $3, $4, $5) 
+	query := `INSERT INTO chats (user_id, title, created_at, last_updated, is_archived, ai_model_version) 
+              VALUES ($1, $2, $3, $4, $5, $6) 
               RETURNING id`
 	err := r.db.QueryRow(ctx, query,
 		chat.UserID,
 		chat.Title,
 		chat.CreatedAt,
 		chat.LastUpdated,
-		chat.IsArchived).Scan(&chat.ID)
+		chat.IsArchived,
+		chat.AIModelVersion).Scan(&chat.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chat: %v", err)
 	}
@@ -158,7 +159,7 @@ func (r *PostgresRepository) CreateChat(ctx context.Context, chat *models.Chat) 
 }
 
 func (r *PostgresRepository) GetChatByID(ctx context.Context, id uuid.UUID) (*models.Chat, error) {
-	query := `SELECT id, user_id, title, created_at, last_updated, is_archived 
+	query := `SELECT id, user_id, title, created_at, last_updated, is_archived, ai_model_version 
               FROM chats 
               WHERE id = $1`
 	chat := &models.Chat{}
@@ -168,7 +169,8 @@ func (r *PostgresRepository) GetChatByID(ctx context.Context, id uuid.UUID) (*mo
 		&chat.Title,
 		&chat.CreatedAt,
 		&chat.LastUpdated,
-		&chat.IsArchived)
+		&chat.IsArchived,
+		&chat.AIModelVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chat by ID: %v", err)
 	}
@@ -177,13 +179,14 @@ func (r *PostgresRepository) GetChatByID(ctx context.Context, id uuid.UUID) (*mo
 
 func (r *PostgresRepository) UpdateChat(ctx context.Context, chat *models.Chat) error {
 	query := `UPDATE chats 
-              SET user_id = $1, title = $2, last_updated = $3, is_archived = $4 
-              WHERE id = $5`
+              SET user_id = $1, title = $2, last_updated = $3, is_archived = $4, ai_model_version = $5
+              WHERE id = $6`
 	_, err := r.db.Exec(ctx, query,
 		chat.UserID,
 		chat.Title,
 		chat.LastUpdated,
 		chat.IsArchived,
+		chat.AIModelVersion,
 		chat.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update chat: %v", err)
@@ -201,7 +204,7 @@ func (r *PostgresRepository) DeleteChat(ctx context.Context, id uuid.UUID) error
 }
 
 func (r *PostgresRepository) GetChatsByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Chat, error) {
-	query := `SELECT id, user_id, title, created_at, last_updated, is_archived 
+	query := `SELECT id, user_id, title, created_at, last_updated, is_archived, ai_model_version 
               FROM chats 
               WHERE user_id = $1`
 	rows, err := r.db.Query(ctx, query, userID)
@@ -219,7 +222,8 @@ func (r *PostgresRepository) GetChatsByUserID(ctx context.Context, userID uuid.U
 			&chat.Title,
 			&chat.CreatedAt,
 			&chat.LastUpdated,
-			&chat.IsArchived); err != nil {
+			&chat.IsArchived,
+			&chat.AIModelVersion); err != nil {
 			return nil, fmt.Errorf("failed to scan chat: %v", err)
 		}
 		chats = append(chats, chat)
