@@ -60,16 +60,6 @@ func ChatCompletionStream(ctx context.Context, messages []models.MessageContent,
 
 func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		var message models.Message
-		if err := c.Bind(&message); err != nil {
-			log.Println("Failed to bind message [c-00]", err)
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body [c-00]"})
-		}
-		if message.Content == "" {
-			log.Println("Content is required [c-0]")
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Content is required [c-0]"})
-		}
-
 		// Get user ID from JWT
 		tokenString := c.Request().Header.Get("Authorization")
 		claims, err := auth.ValidateToken(tokenString, false)
@@ -82,37 +72,70 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 			log.Println("Failed to parse user ID [c-2]", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-2]"})
 		}
-		message.UserID = userID
+
+		// Bind the raw payload first to check for invalid fields
+		var rawPayload map[string]interface{}
+		if err := c.Bind(&rawPayload); err != nil {
+			log.Println("Failed to bind message [c-000]", err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body [c-000]"})
+		}
+
+		if rawPayload["content"] == "" {
+			log.Println("Content is required [c-0000]")
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Content is required [c-0000]"})
+		}
+
+		var isNewChat bool
+		var chatID uuid.UUID
+		var aiModelVersion string
 		messages := []models.MessageContent{}
+		rawPayload["user_id"] = userID
 		// If no chat ID, create a new chat
-		isNewChat := message.ChatID == uuid.Nil
-		if isNewChat {
+		if rawPayload["chat_id"] == "" {
+			isNewChat = true
 			newChat := &models.Chat{
 				UserID:         userID,
-				Title:          message.Content[:min(50, len(message.Content))],
+				Title:          rawPayload["content"].(string)[:min(50, len(rawPayload["content"].(string)))],
 				CreatedAt:      time.Now(),
 				LastUpdated:    time.Now(),
 				IsArchived:     false,
-				AIModelVersion: *message.AIModelVersion,
+				AIModelVersion: rawPayload["ai_model_version"].(string),
 			}
+
 			createdChat, err := repo.CreateChat(c.Request().Context(), newChat)
 			if err != nil {
 				log.Println("Failed to create new chat [c-3]", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-3]"})
 			}
-			message.ChatID = createdChat.ID
+			aiModelVersion = createdChat.AIModelVersion
+			rawPayload["chat_id"] = createdChat.ID
+			chatID = createdChat.ID
+		} else {
+			chat, err := repo.GetChatByID(c.Request().Context(), rawPayload["chat_id"].(uuid.UUID))
+			if err != nil {
+				log.Println("Failed to get chat [c-3]", err)
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-3]"})
+			}
+			aiModelVersion = chat.AIModelVersion
+			chatID = chat.ID
+		}
+		// the user message
+		message := models.Message{
+			ChatID:    rawPayload["chat_id"].(uuid.UUID),
+			Content:   rawPayload["content"].(string),
+			UserID:    userID,
+			Role:      "user",
+			IsEdited:  rawPayload["is_edited"].(bool),
+			CreatedAt: rawPayload["created_at"].(time.Time),
+		}
+
+		if isNewChat {
 			messages = append(messages, models.MessageContent{
 				Role:    "user",
 				Content: message.Content,
 			})
 		} else {
-			chat, err := repo.GetChatByID(c.Request().Context(), message.ChatID)
-			if err != nil {
-				log.Println("Failed to get chat [c-3]", err)
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-3]"})
-			}
-			message.AIModelVersion = &chat.AIModelVersion
-			messages, err = repo.GetMessageContentsByChatID(c.Request().Context(), message.ChatID)
+			messages, err = repo.GetMessageContentsByChatID(c.Request().Context(), chatID)
 			if err != nil {
 				log.Println("Failed to get message contents [c-4]", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-4]"})
@@ -123,14 +146,13 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 			})
 		}
 
-		// Insert message into database
 		err = repo.CreateMessage(c.Request().Context(), &message)
 		if err != nil {
 			log.Println("Failed to save message [c-5]", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-5]"})
 		}
 
-		stream, err := ChatCompletionStream(c.Request().Context(), messages, *message.AIModelVersion)
+		stream, err := ChatCompletionStream(c.Request().Context(), messages, aiModelVersion)
 		if err != nil {
 			log.Println("Failed to create chat completion stream [c-6]", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-6]"})
@@ -164,11 +186,10 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 
 		// Save assistant's response as a new message
 		assistantMessage := &models.Message{
-			ChatID:         message.ChatID,
-			UserID:         message.UserID,
-			Content:        assistantResponse,
-			Role:           "assistant",
-			AIModelVersion: message.AIModelVersion,
+			ChatID:  chatID,
+			UserID:  userID,
+			Content: assistantResponse,
+			Role:    "assistant",
 		}
 		err = repo.CreateMessage(c.Request().Context(), assistantMessage)
 		if err != nil {
