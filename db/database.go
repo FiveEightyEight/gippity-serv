@@ -334,6 +334,33 @@ func (r *PostgresRepository) GetMessagesByChatID(ctx context.Context, chatID uui
 	return messages, nil
 }
 
+func (r *PostgresRepository) GetMessageContentsByChatID(ctx context.Context, chatID uuid.UUID) ([]models.MessageContent, error) {
+	query := `SELECT role, content
+              FROM messages
+              WHERE chat_id = $1
+              ORDER BY created_at ASC`
+	rows, err := r.db.Query(ctx, query, chatID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message contents by chat ID: %v", err)
+	}
+	defer rows.Close()
+
+	var messages []models.MessageContent
+	for rows.Next() {
+		var msg models.MessageContent
+		if err := rows.Scan(&msg.Role, &msg.Content); err != nil {
+			return nil, fmt.Errorf("failed to scan message content: %v", err)
+		}
+		messages = append(messages, msg)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over message contents: %v", err)
+	}
+
+	return messages, nil
+}
+
 var _ repository.UserRepository = (*PostgresRepository)(nil)
 
 // Implement other repository methods (UserMetadata, Chat, Message, ChatAIModel, UserPreferences) similarly...

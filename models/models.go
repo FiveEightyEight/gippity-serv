@@ -70,3 +70,8 @@ type UserPreferences struct {
 	MessageDisplayCount  int       `json:"message_display_count"`
 	NotificationsEnabled bool      `json:"notifications_enabled"`
 }
+
+type MessageContent struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
