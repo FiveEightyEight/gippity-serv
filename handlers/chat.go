@@ -112,7 +112,18 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 			rawPayload["chat_id"] = createdChat.ID
 			chatID = createdChat.ID
 		} else {
-			chat, err := repo.GetChatByID(c.Request().Context(), rawPayload["chat_id"].(uuid.UUID))
+			rawChatID := rawPayload["chat_id"]
+			chatIDString, ok := rawChatID.(string)
+			if !ok {
+				log.Println("Failed to get chat_id as string [c-004]")
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid chat_id format [c-004]"})
+			}
+			chatIDParsed, err := uuid.Parse(chatIDString)
+			if err != nil {
+				log.Println("Failed to parse chat_id [c-005]", err)
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid chat_id format [c-005]"})
+			}
+			chat, err := repo.GetChatByID(c.Request().Context(), chatIDParsed)
 			if err != nil {
 				log.Println("Failed to get chat [c-3]", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-3]"})
@@ -137,7 +148,7 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 		// Use the parsed time in the message struct
 		// the user message
 		message := models.Message{
-			ChatID:    rawPayload["chat_id"].(uuid.UUID),
+			ChatID:    chatID,
 			Content:   rawPayload["content"].(string),
 			UserID:    userID,
 			Role:      "user",
