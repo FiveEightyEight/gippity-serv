@@ -33,6 +33,22 @@ func getEnvKey() string {
 	return apiKey
 }
 
+func getUserIDFromContext(c echo.Context) (uuid.UUID, error) {
+	userID := c.Get("userID")
+	if userID == nil {
+		return uuid.Nil, errors.New("userID not found in context")
+	}
+	userIDString, ok := userID.(string)
+	if !ok {
+		return uuid.Nil, errors.New("userID is not a string")
+	}
+	userUUID, err := uuid.Parse(userIDString)
+	if err != nil {
+		return uuid.Nil, errors.New("userID is not a valid UUID")
+	}
+	return userUUID, nil
+}
+
 func ChatCompletionStream(ctx context.Context, messages []models.MessageContent, aiModelVersion string) (*openai.ChatCompletionStream, error) {
 	c := openai.NewClient(getEnvKey())
 
@@ -59,20 +75,10 @@ func ChatCompletionStream(ctx context.Context, messages []models.MessageContent,
 
 func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		unparsedUserID := c.Get("userID")
-		if unparsedUserID == nil {
-			log.Println("Failed to get userID from context [c-001]")
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized [c-001]"})
-		}
-		userIDString, ok := unparsedUserID.(string)
-		if !ok {
-			log.Println("Failed to convert userID to string [c-003]")
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-003]"})
-		}
-		userID, err := uuid.Parse(userIDString)
+		userID, err := getUserIDFromContext(c)
 		if err != nil {
-			log.Println("Failed to parse userID [c-002]", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [c-002]"})
+			log.Println("Failed to get userID from context [c-001]", err)
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized [c-001]"})
 		}
 
 		// Bind the raw payload first to check for invalid fields
@@ -262,5 +268,23 @@ func GetConversation(repo *db.PostgresRepository) echo.HandlerFunc {
 		}
 
 		return c.JSON(http.StatusOK, messages)
+	}
+}
+
+func GetChatHistory(repo *db.PostgresRepository) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID, err := getUserIDFromContext(c)
+		if err != nil {
+			log.Println("Failed to get userID from context [gch-001]", err)
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized [gch-001]"})
+		}
+
+		chats, err := repo.GetChatsByUserID(c.Request().Context(), userID)
+		if err != nil {
+			log.Println("Failed to get chat history [gch-002]", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [gch-002]"})
+		}
+
+		return c.JSON(http.StatusOK, chats)
 	}
 }
