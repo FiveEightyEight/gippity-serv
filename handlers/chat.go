@@ -229,3 +229,38 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 		return nil
 	}
 }
+
+func GetConversation(repo *db.PostgresRepository) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		chatID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			log.Println("Invalid chat ID [gc-001]", err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid chat ID [gc-001]"})
+		}
+
+		userID := c.Get("userID").(string)
+		userUUID, err := uuid.Parse(userID)
+		if err != nil {
+			log.Println("Invalid user ID [gc-002]", err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user ID [gc-002]"})
+		}
+
+		chat, err := repo.GetChatByID(c.Request().Context(), chatID)
+		if err != nil {
+			log.Println("Failed to get chat [gc-003]", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [gc-003]"})
+		}
+
+		if chat.UserID != userUUID {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied [gc-004]"})
+		}
+
+		messages, err := repo.GetMessagesByChatID(c.Request().Context(), chatID)
+		if err != nil {
+			log.Println("Failed to get messages [gc-005]", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [gc-005]"})
+		}
+
+		return c.JSON(http.StatusOK, messages)
+	}
+}
