@@ -162,6 +162,7 @@ func main() {
 	authGroup.POST("/chat", handleChatCompletion)
 	authGroup.POST("/conversation", handlers.Conversation(db))
 	authGroup.GET("/conversation/:id", handlers.GetConversation(db))
+	authGroup.GET("/chat-history", handlers.GetChatHistory(db))
 
 	port := os.Getenv("PORT")
 	if port == "" {
