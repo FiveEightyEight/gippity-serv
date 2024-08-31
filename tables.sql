@@ -54,7 +54,7 @@ CREATE INDEX idx_chats_id ON chats(id);
 CREATE TABLE messages (
     pk SERIAL PRIMARY KEY,
     id UUID UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
-    chat_id UUID REFERENCES chats(id),
+    chat_id UUID REFERENCES chats(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id),
     role VARCHAR(20) NOT NULL,
     content TEXT NOT NULL,
