@@ -161,6 +161,7 @@ func main() {
 	authGroup.GET("/models", handlers.GetAllAIModels(db))
 	authGroup.POST("/chat", handleChatCompletion)
 	authGroup.POST("/conversation", handlers.Conversation(db))
+	authGroup.GET("/conversation/:id", handlers.GetConversation(db))
 
 	port := os.Getenv("PORT")
 	if port == "" {
