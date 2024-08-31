@@ -33,6 +33,19 @@ func getEnvKey() string {
 	return apiKey
 }
 
+func loadTZLocation() *time.Location {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+	locationENV := os.Getenv("LOCATION")
+	location, err := time.LoadLocation(locationENV)
+	if err != nil {
+		log.Fatalf("Error loading location %s", err)
+	}
+	return location
+}
+
 func getUserIDFromContext(c echo.Context) (uuid.UUID, error) {
 	userID := c.Get("userID")
 	if userID == nil {
@@ -97,14 +110,16 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 		var chatID uuid.UUID
 		var aiModelVersion string
 		messages := []models.MessageContent{}
+		timeLocation := loadTZLocation()
 		// If no chat ID, create a new chat
 		if rawPayload["chat_id"] == "" {
 			isNewChat = true
+			currentTime := time.Now().In(timeLocation)
 			newChat := &models.Chat{
 				UserID:         userID,
 				Title:          rawPayload["content"].(string)[:min(50, len(rawPayload["content"].(string)))],
-				CreatedAt:      time.Now(),
-				LastUpdated:    time.Now(),
+				CreatedAt:      currentTime,
+				LastUpdated:    currentTime,
 				IsArchived:     false,
 				AIModelVersion: rawPayload["ai_model_version"].(string),
 			}
@@ -221,10 +236,11 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 
 		// Save assistant's response as a new message
 		assistantMessage := &models.Message{
-			ChatID:  chatID,
-			UserID:  userID,
-			Content: assistantResponse,
-			Role:    "assistant",
+			ChatID:    chatID,
+			UserID:    userID,
+			Content:   assistantResponse,
+			Role:      "assistant",
+			CreatedAt: time.Now().In(timeLocation),
 		}
 		err = repo.CreateMessage(c.Request().Context(), assistantMessage)
 		if err != nil {
