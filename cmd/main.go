@@ -163,7 +163,7 @@ func main() {
 	authGroup.POST("/conversation", handlers.Conversation(db))
 	authGroup.GET("/conversation/:id", handlers.GetConversation(db))
 	authGroup.GET("/chat-history", handlers.GetChatHistory(db))
-
+	authGroup.DELETE("/chat/:id", handlers.DeleteChat(db))
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = ":8080"
