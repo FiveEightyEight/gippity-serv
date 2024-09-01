@@ -307,8 +307,8 @@ func GetChatHistory(repo *db.PostgresRepository) echo.HandlerFunc {
 			log.Println("Failed to get userID from context [gch-001]", err)
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized [gch-001]"})
 		}
-
-		chats, err := repo.GetChatsByUserID(c.Request().Context(), userID)
+		sortByDate := true
+		chats, err := repo.GetChatsByUserID(c.Request().Context(), userID, sortByDate)
 		if err != nil {
 			log.Println("Failed to get chat history [gch-002]", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [gch-002]"})

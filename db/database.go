@@ -203,10 +203,15 @@ func (r *PostgresRepository) DeleteChat(ctx context.Context, id uuid.UUID) error
 	return nil
 }
 
-func (r *PostgresRepository) GetChatsByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Chat, error) {
+func (r *PostgresRepository) GetChatsByUserID(ctx context.Context, userID uuid.UUID, sortByLastUpdated bool) ([]*models.Chat, error) {
 	query := `SELECT id, user_id, title, created_at, last_updated, is_archived, ai_model_version 
               FROM chats 
               WHERE user_id = $1`
+
+	if sortByLastUpdated {
+		query += ` ORDER BY last_updated DESC`
+	}
+
 	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chats by user ID: %v", err)
