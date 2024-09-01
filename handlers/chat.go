@@ -248,6 +248,18 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 			// Note: We don't return an error here because the response has already been sent to the client
 		}
 
+		// Update the Chat's LastUpdated value
+		chat, err := repo.GetChatByID(c.Request().Context(), chatID)
+		if err != nil {
+			log.Println("Failed to get chat for updating LastUpdated [c-10]", err)
+		} else {
+			chat.LastUpdated = time.Now().In(timeLocation)
+			err = repo.UpdateChat(c.Request().Context(), chat)
+			if err != nil {
+				log.Println("Failed to update chat's LastUpdated [c-11]", err)
+			}
+		}
+
 		return nil
 	}
 }
