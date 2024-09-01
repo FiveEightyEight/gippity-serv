@@ -304,3 +304,37 @@ func GetChatHistory(repo *db.PostgresRepository) echo.HandlerFunc {
 		return c.JSON(http.StatusOK, chats)
 	}
 }
+
+func DeleteChat(repo *db.PostgresRepository) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		chatID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			log.Println("Invalid chat ID [dc-001]", err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid chat ID [dc-001]"})
+		}
+
+		userID, err := getUserIDFromContext(c)
+		if err != nil {
+			log.Println("Failed to get userID from context [dc-002]", err)
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized [dc-002]"})
+		}
+
+		chat, err := repo.GetChatByID(c.Request().Context(), chatID)
+		if err != nil {
+			log.Println("Failed to get chat [dc-003]", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [dc-003]"})
+		}
+
+		if chat.UserID != userID {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied [dc-004]"})
+		}
+
+		err = repo.DeleteChat(c.Request().Context(), chatID)
+		if err != nil {
+			log.Println("Failed to delete chat [dc-005]", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [dc-005]"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Chat deleted successfully"})
+	}
+}
