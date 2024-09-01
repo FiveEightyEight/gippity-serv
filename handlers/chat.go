@@ -235,12 +235,13 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 		}
 
 		// Save assistant's response as a new message
+		lastUpdated := time.Now().In(timeLocation)
 		assistantMessage := &models.Message{
 			ChatID:    chatID,
 			UserID:    userID,
 			Content:   assistantResponse,
 			Role:      "assistant",
-			CreatedAt: time.Now().In(timeLocation),
+			CreatedAt: lastUpdated,
 		}
 		err = repo.CreateMessage(c.Request().Context(), assistantMessage)
 		if err != nil {
@@ -253,7 +254,7 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 		if err != nil {
 			log.Println("Failed to get chat for updating LastUpdated [c-10]", err)
 		} else {
-			chat.LastUpdated = time.Now().In(timeLocation)
+			chat.LastUpdated = lastUpdated
 			err = repo.UpdateChat(c.Request().Context(), chat)
 			if err != nil {
 				log.Println("Failed to update chat's LastUpdated [c-11]", err)
