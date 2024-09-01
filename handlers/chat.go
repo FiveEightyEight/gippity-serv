@@ -267,33 +267,37 @@ func Conversation(repo *db.PostgresRepository) echo.HandlerFunc {
 
 func GetConversation(repo *db.PostgresRepository) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		chatID, err := uuid.Parse(c.Param("id"))
-		if err != nil {
-			log.Println("Invalid chat ID [gc-001]", err)
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid chat ID [gc-001]"})
+		chatIDStr := c.QueryParam("id")
+		if chatIDStr == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing chat ID [gc-001]"})
 		}
 
-		userID := c.Get("userID").(string)
-		userUUID, err := uuid.Parse(userID)
+		chatID, err := uuid.Parse(chatIDStr)
 		if err != nil {
-			log.Println("Invalid user ID [gc-002]", err)
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user ID [gc-002]"})
+			log.Println("Invalid chat ID [gc-002]", err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid chat ID [gc-002]"})
+		}
+
+		userID, err := getUserIDFromContext(c)
+		if err != nil {
+			log.Println("Failed to get userID from context [gc-003]", err)
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized [gc-003]"})
 		}
 
 		chat, err := repo.GetChatByID(c.Request().Context(), chatID)
 		if err != nil {
-			log.Println("Failed to get chat [gc-003]", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [gc-003]"})
+			log.Println("Failed to get chat [gc-004]", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [gc-004]"})
 		}
 
-		if chat.UserID != userUUID {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied [gc-004]"})
+		if chat.UserID != userID {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied [gc-005]"})
 		}
 
 		messages, err := repo.GetMessagesByChatID(c.Request().Context(), chatID)
 		if err != nil {
-			log.Println("Failed to get messages [gc-005]", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [gc-005]"})
+			log.Println("Failed to get messages [gc-006]", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error [gc-006]"})
 		}
 
 		return c.JSON(http.StatusOK, messages)
