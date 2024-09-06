@@ -2,19 +2,15 @@ module github.com/FiveEightyEight/gippity-serv
 
 go 1.22.5
 
-require github.com/joho/godotenv v1.5.1
-
-require github.com/rs/cors v1.11.0
-
-require github.com/labstack/echo/v4 v4.12.0
-
-require github.com/sashabaranov/go-openai v1.28.1
-
-require github.com/jackc/pgx/v5 v5.6.0
-
-require github.com/google/uuid v1.6.0
-
-require github.com/golang-jwt/jwt/v5 v5.2.1
+require (
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.6.0
+	github.com/jackc/pgx/v5 v5.6.0
+	github.com/joho/godotenv v1.5.1
+	github.com/labstack/echo/v4 v4.12.0
+	github.com/samber/lo v1.47.0
+	github.com/sashabaranov/go-openai v1.28.1
+)
 
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
@@ -28,8 +24,8 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 )
