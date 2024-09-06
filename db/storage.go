@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/samber/lo"
 )
 
 type Storage struct {
@@ -23,36 +26,36 @@ func (o *Storage) Configure() (err error) {
 
 // GetNames finds all patterns in the patterns directory and enters the id, name, and pattern into a slice of Entry structs. it returns these entries or an error
 func (o *Storage) GetNames() (ret []string, err error) {
-	// var entries []os.DirEntry
-	// if entries, err = os.ReadDir(o.Dir); err != nil {
-	// 	err = fmt.Errorf("could not read items from directory: %v", err)
-	// 	return
-	// }
+	var entries []os.DirEntry
+	if entries, err = os.ReadDir(o.Dir); err != nil {
+		err = fmt.Errorf("could not read items from directory: %v", err)
+		return
+	}
 
-	// if o.ItemIsDir {
-	// 	ret = lo.FilterMap(entries, func(item os.DirEntry, index int) (ret string, ok bool) {
-	// 		if ok = item.IsDir(); ok {
-	// 			ret = item.Name()
-	// 		}
-	// 		return
-	// 	})
-	// } else {
-	// 	if o.FileExtension == "" {
-	// 		ret = lo.FilterMap(entries, func(item os.DirEntry, index int) (ret string, ok bool) {
-	// 			if ok = !item.IsDir(); ok {
-	// 				ret = item.Name()
-	// 			}
-	// 			return
-	// 		})
-	// 	} else {
-	// 		ret = lo.FilterMap(entries, func(item os.DirEntry, index int) (ret string, ok bool) {
-	// 			if ok = !item.IsDir() && filepath.Ext(item.Name()) == o.FileExtension; ok {
-	// 				ret = strings.TrimSuffix(item.Name(), o.FileExtension)
-	// 			}
-	// 			return
-	// 		})
-	// 	}
-	// }
+	if o.ItemIsDir {
+		ret = lo.FilterMap(entries, func(item os.DirEntry, index int) (ret string, ok bool) {
+			if ok = item.IsDir(); ok {
+				ret = item.Name()
+			}
+			return
+		})
+	} else {
+		if o.FileExtension == "" {
+			ret = lo.FilterMap(entries, func(item os.DirEntry, index int) (ret string, ok bool) {
+				if ok = !item.IsDir(); ok {
+					ret = item.Name()
+				}
+				return
+			})
+		} else {
+			ret = lo.FilterMap(entries, func(item os.DirEntry, index int) (ret string, ok bool) {
+				if ok = !item.IsDir() && filepath.Ext(item.Name()) == o.FileExtension; ok {
+					ret = strings.TrimSuffix(item.Name(), o.FileExtension)
+				}
+				return
+			})
+		}
+	}
 	return
 }
 
