@@ -21,6 +21,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
+
+	patternsStorage := &db.Storage{
+		Label:         "Patterns",
+		Dir:           "./patterns", // Adjust this path as needed
+		ItemIsDir:     true,
+		FileExtension: "",
+	}
+	if err := patternsStorage.Configure(); err != nil {
+		log.Fatalf("Error configuring patterns storage: %v", err)
+	}
 	// Initialize database connection
 	db, err := db.NewDatabaseConnection()
 	if err != nil {
@@ -50,6 +60,7 @@ func main() {
 	authGroup := e.Group("/api/v1")
 	authGroup.Use(handlers.AuthMiddleware)
 	authGroup.GET("/models", handlers.GetAllAIModels(db))
+	authGroup.GET("/patterns", handlers.GetPatterns(patternsStorage))
 	authGroup.GET("/chat", handlers.GetConversation(db))
 	authGroup.POST("/conversation", handlers.Conversation(db))
 	authGroup.GET("/chat-history", handlers.GetChatHistory(db))
